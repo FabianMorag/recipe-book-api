@@ -1,0 +1,98 @@
+# openspec/config.yaml
+schema: spec-driven
+strict_tdd: true
+
+context: |
+  Tech stack: NestJS 11 + TypeScript 5.7 + Prisma 7 (PostgreSQL) + Auth.js (Google OAuth)
+  Architecture: Modular NestJS feature modules; global PrismaModule; Auth.js ESM runtime
+    loaded dynamically (project is CommonJS); Prisma 7 driver-adapter pattern (PrismaPg);
+    snake_case DB columns with @map; Auth.js database-session strategy.
+  Package manager: pnpm (pnpm-workspace.yaml scoped to allow Prisma engine builds)
+  Module system: CommonJS (no "type":"module"; ESM packages loaded via dynamic import)
+  Code style: Prettier (singleQuote, trailingComma:all, semi:false)
+  Linting: ESLint 9 + typescript-eslint (recommended-type-checked) + prettier plugin
+  Type checking: TypeScript strictNullChecks; noImplicitAny:off; strictBindCallApply:off
+  CI guard: Custom forbid-focused-tests.cjs (scans for it.only/fit/fdescribe before CI runs)
+
+testing:
+  runner:
+    framework: jest
+    version: "30"
+    command: pnpm run test
+    transform: ts-jest
+    root_dir: src
+    test_pattern: .*\.spec\.ts$
+    e2e_config: ./test/jest-e2e.json
+    e2e_pattern: .e2e-spec.ts$
+
+  layers:
+    unit:
+      available: true
+      tool: jest
+      pattern: "*.spec.ts"
+    integration:
+      available: true
+      tool: "@nestjs/testing + supertest"
+      note: via NestJS Test module, used in both unit and e2e suites
+    e2e:
+      available: true
+      tool: supertest + jest (e2e config)
+      pattern: "*.e2e-spec.ts"
+
+  coverage:
+    available: true
+    command: pnpm run test:cov
+    collect_from:
+      - "**/*.(t|j)s"
+    coverage_dir: ../coverage
+
+  quality:
+    linter:
+      available: true
+      command: pnpm run lint
+      tool: eslint 9 + typescript-eslint
+    type_checker:
+      available: true
+      command: npx tsc --noEmit
+      tool: typescript 5.7
+      note: strictNullChecks enabled, noImplicitAny disabled
+    formatter:
+      available: true
+      command: pnpm run format
+      tool: prettier 3.4
+      config: singleQuote, trailingComma all, noSemi
+
+  ci_guards:
+    - forbid-focused-tests.cjs (prevents it.only/fit/fdescribe in CI)
+    - test:ci runs forbid-focused-tests + jest
+    - test:e2e:ci runs forbid-focused-tests + jest --config ./test/jest-e2e.json
+
+rules:
+  proposal:
+    - Include scope, approach, affected modules, and risk assessment
+    - Reference existing specs/domains when relevant
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Map each scenario to a module boundary
+  design:
+    - Include module dependency diagrams for cross-module changes
+    - Document architecture decisions with rationale
+    - Reference NestJS patterns (modules, providers, guards, interceptors)
+  tasks:
+    - Group by module/domain, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Always include test tasks alongside implementation
+  apply:
+    - Follow existing NestJS module patterns
+    tdd: true
+    test_command: pnpm run test
+  verify:
+    test_command: pnpm run test
+    test_e2e_command: pnpm run test:e2e
+    build_command: pnpm run build
+    coverage_command: pnpm run test:cov
+    coverage_threshold: 80
+  archive:
+    - Warn before merging destructive deltas
+    - Verify all task checkboxes are marked [x] before archiving
