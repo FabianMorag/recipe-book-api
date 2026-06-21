@@ -31,6 +31,14 @@
 $ pnpm install
 ```
 
+`pnpm install` runs `postinstall: prisma generate` automatically, which
+regenerates the Prisma client into `src/generated/prisma` (gitignored). You can
+also run it explicitly:
+
+```bash
+$ pnpm run db:generate
+```
+
 ## Compile and run the project
 
 ```bash
@@ -55,7 +63,87 @@ $ pnpm run test:e2e
 
 # test coverage
 $ pnpm run test:cov
+
+# CI (fails on focused tests — guards against `it.only`/`describe.only`/`fit`/`fdescribe`)
+$ pnpm run test:ci
+$ pnpm run test:e2e:ci
 ```
+
+The `:ci` scripts run `scripts/forbid-focused-tests.cjs` before Jest. Jest 30
+removed the historical `forbidOnly` config option, so the guard is a small
+scanner that rejects `it.only`/`test.only`/`describe.only` and the Jest aliases
+`fit(`/`fdescribe(` in spec files. The `fit`/`fdescribe` check matches whole
+words followed by a call, so ordinary words like `profit` or `outfit` do not
+trigger false positives. The regular `test`/`test:e2e`/`test:watch` scripts
+skip the guard so local debugging with `.only` keeps working. The scanner has a
+standalone verification suite run with `node --test
+scripts/forbid-focused-tests.test.cjs`.
+
+## Authentication
+
+This API uses backend-owned [Auth.js](https://authjs.dev) (Express integration)
+with Google OAuth and a Prisma-backed database session store. A separate
+frontend can redirect the browser to the backend auth routes and read the
+resulting session cookie via `GET /me`.
+
+### Auth routes (mounted on Express at `/auth`)
+
+| Route | Purpose |
+|-------|---------|
+| `GET /auth/signin` | Shows the Auth.js sign-in page with the Google button. |
+| `POST /auth/signin/google` | Starts the Google sign-in flow after the sign-in form submits with CSRF protection. |
+| `GET /auth/callback/google` | OAuth callback; creates the session and sets the cookie. |
+| `GET /auth/signout` | Signs the user out and clears the session. |
+| `GET /auth/session` | Returns the current session as JSON. |
+
+### Authenticated identity
+
+`GET /me` returns `{ user: { id, name, email, image } }` when a valid session
+cookie is present, or `401` otherwise.
+
+### Required environment variables
+
+Copy `.env.example` to `.env` and fill in:
+
+- `DATABASE_URL` — PostgreSQL connection string.
+- `AUTH_SECRET` — session/cookie signing secret (`openssl rand -base64 32`).
+- `AUTH_TRUST_HOST` — set to `"true"` to trust the Host header behind a proxy.
+  Read as a boolean; unset or any other value disables it for local dev.
+- `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` — Google OAuth client credentials.
+
+### Optional environment variables
+
+- `FRONTEND_ORIGIN` — when set, enables CORS for that origin with credentials
+  so a cross-domain frontend can call `/me` and read the session cookie. Leave
+  unset for same-origin deployments.
+- `PORT` — HTTP port (defaults to `3000`).
+
+### Google Cloud Console redirect URI
+
+```
+http://localhost:3000/auth/callback/google     # local dev
+https://<your-domain>/auth/callback/google     # production
+```
+
+### Notes
+
+- The Auth.js handler is mounted with `app.use('/auth', ...)` (prefix mount)
+  because Express 5 rejects the `app.use('/auth/*', ...)` pattern from the
+  Auth.js docs (path-to-regexp v8 requires named wildcards).
+- `@auth/express` and `@auth/prisma-adapter` are ESM-only while this project
+  compiles to CommonJS, so they are loaded with dynamic `import()` at startup
+  (`src/auth/auth-loader.ts`).
+- The Prisma client is generated locally (gitignored) and requires
+  `prisma generate`. `pnpm install` runs this via `postinstall`; run
+  `pnpm run db:generate` after schema changes.
+- `AUTH_TRUST_HOST` is read as a boolean by `AuthService` — set to `"true"` to
+  enable `trustHost` for Auth.js and `trust proxy` on Express (so Auth.js can
+  detect HTTPS behind a reverse proxy); unset or any other value keeps both off
+  for local dev.
+- For a cross-domain frontend in production, set `FRONTEND_ORIGIN` to enable
+  CORS with credentials, and deploy Auth.js cookies with
+  `SameSite=None; Secure`. Same-site deployments work with the default
+  `SameSite=Lax` cookies.
 
 ## Deployment
 
