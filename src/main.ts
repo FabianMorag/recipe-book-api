@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { ValidationPipe } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
+import { configureOpenApi } from './openapi'
 
 /**
  * Resolve the CORS policy from the environment.
@@ -39,6 +40,7 @@ async function bootstrap() {
     }),
   )
   app.enableCors(resolveCorsOptions())
+  configureOpenApi(app)
   await app.listen(process.env['PORT'] ?? 3000)
 }
 

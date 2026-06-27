@@ -101,6 +101,36 @@ resulting session cookie via `GET /me`.
 `GET /me` returns `{ user: { id, name, email, image } }` when a valid session
 cookie is present, or `401` otherwise.
 
+## Frontend API contract
+
+Swagger UI is available at `GET /docs`. The OpenAPI JSON document is available
+at `GET /docs-json` and is intended for frontend type and client generation.
+
+Example frontend setup:
+
+```bash
+$ pnpm add openapi-fetch
+$ pnpm add -D openapi-typescript
+$ pnpm exec openapi-typescript http://localhost:3000/docs-json -o src/api/schema.ts
+```
+
+Example typed client:
+
+```ts
+import createClient from 'openapi-fetch'
+import type { paths } from './schema'
+
+export const api = createClient<paths>({
+  baseUrl: 'http://localhost:3000',
+  credentials: 'include',
+})
+```
+
+Use `credentials: 'include'` when calling authenticated endpoints so the browser
+sends the Auth.js session cookie. Start browser login through the backend-owned
+Auth.js route at `/auth/signin`; after login, call `GET /me` to read the current
+session user.
+
 ### Required environment variables
 
 Copy `.env.example` to `.env` and fill in:
