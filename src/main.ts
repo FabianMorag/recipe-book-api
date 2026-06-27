@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { ValidationPipe } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 
@@ -30,6 +31,13 @@ function resolveCorsOptions():
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  )
   app.enableCors(resolveCorsOptions())
   await app.listen(process.env['PORT'] ?? 3000)
 }

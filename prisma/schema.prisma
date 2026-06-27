@@ -79,12 +79,20 @@ model Recipe {
   id          String   @id @default(cuid())
   title       String
   description String?
-  isPublic    Boolean  @default(false) @map("is_public")
+  status      RecipeStatus @default(DRAFT)
   authorId    String   @map("author_id")
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([authorId])
+  @@index([status])
+  @@index([authorId, status])
   @@map("recipes")
+}
+
+enum RecipeStatus {
+  DRAFT
+  PRIVATE
+  PUBLIC
 }

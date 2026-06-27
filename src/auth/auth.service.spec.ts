@@ -19,6 +19,7 @@ describe('mapSessionUserId (Auth.js session callback)', () => {
         image: null,
         ...overrides,
       },
+      expires: new Date('2026-06-27T10:00:00.000Z').toISOString(),
     }
   }
 
