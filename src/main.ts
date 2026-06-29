@@ -20,7 +20,7 @@ import { configureOpenApi } from './openapi'
 function resolveCorsOptions():
   | boolean
   | { origin: string; credentials: boolean } {
-  const origin = process.env['FRONTEND_ORIGIN']
+  const origin = process.env['FRONTEND_ORIGIN'] ?? 'http://localhost:3001'
   if (!origin) {
     return false
   }

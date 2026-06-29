@@ -7,7 +7,6 @@ import {
   type ExpressAuthConfig,
   type Session,
 } from './auth-loader'
-import './auth.types'
 
 /**
  * Auth.js `session` callback for the database session strategy.
@@ -77,7 +76,7 @@ export class AuthService {
   /** Resolves the current session for an Express request, or null. */
   async getSession(req: Request): Promise<Session | null> {
     this.ensureReady()
-    return this.runtime!.getSession(req, this.config!)
+    return (await this.runtime!.getSession(req, this.config!)) as Session | null
   }
 
   private ensureReady(): void {

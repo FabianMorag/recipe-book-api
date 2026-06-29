@@ -8,20 +8,27 @@
 // - Runtime values are loaded with dynamic `import()`, which Node supports when
 //   importing ESM from a CommonJS context.
 
-import type { ExpressAuthConfig, Session } from '@auth/express'
-
-type ExpressModule = typeof import('@auth/express')
-type AdapterModule = typeof import('@auth/prisma-adapter')
-type GoogleModule = typeof import('@auth/express/providers/google')
+import type {
+  ExpressAuthConfig,
+  Session as AuthExpressSession,
+} from '@auth/express' with { 'resolution-mode': 'import' }
+import type { Request, RequestHandler } from 'express'
 
 export interface AuthRuntime {
-  ExpressAuth: ExpressModule['ExpressAuth']
-  getSession: ExpressModule['getSession']
-  PrismaAdapter: AdapterModule['PrismaAdapter']
-  Google: GoogleModule['default']
+  ExpressAuth: (config: ExpressAuthConfig) => RequestHandler
+  getSession: (
+    req: Request,
+    config: ExpressAuthConfig,
+  ) => Promise<AuthExpressSession | null>
+  PrismaAdapter: (prisma: unknown) => ExpressAuthConfig['adapter']
+  Google: NonNullable<ExpressAuthConfig['providers']>[number]
 }
 
-export type { ExpressAuthConfig, Session }
+export type Session = Omit<AuthExpressSession, 'user'> & {
+  user: NonNullable<AuthExpressSession['user']> & { id: string }
+}
+
+export type { ExpressAuthConfig }
 
 let runtimePromise: Promise<AuthRuntime> | null = null
 

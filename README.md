@@ -39,6 +39,25 @@ also run it explicitly:
 $ pnpm run db:generate
 ```
 
+### Database scripts
+
+```bash
+# Apply pending migrations in local development.
+$ pnpm run db:migrate
+
+# Apply existing migrations in production/CI.
+$ pnpm run db:deploy
+
+# Reset the local database and re-run migrations. Destructive.
+$ pnpm run db:reset
+
+# Open Prisma Studio.
+$ pnpm run db:studio
+```
+
+`db:generate` only updates the TypeScript Prisma client. It does not change the
+database schema. Run `db:migrate` after pulling or creating migrations locally.
+
 ## Compile and run the project
 
 ```bash
