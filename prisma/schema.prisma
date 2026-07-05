@@ -79,6 +79,9 @@ model Recipe {
   id          String   @id @default(cuid())
   title       String
   description String?
+  servings    Int?
+  imageUrl    String?   @map("image_url")
+  tags        String[]  @default([])
   status      RecipeStatus @default(DRAFT)
   authorId    String   @map("author_id")
   author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)

@@ -1,9 +1,16 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
+  Matches,
+  ValidateIf,
   MaxLength,
+  Min,
 } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { RecipeStatus } from '../../generated/prisma/enums'
@@ -30,6 +37,43 @@ export class CreateRecipeDto {
   @IsString()
   @MaxLength(2000)
   description?: string | null
+
+  @ApiPropertyOptional({
+    example: 4,
+    type: Number,
+    description: 'Number of servings. Positive integer.',
+    minimum: 1,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  servings?: number | null
+
+  @ApiPropertyOptional({
+    example: 'https://example.com/pasta.jpg',
+    type: String,
+    description: 'URL to a recipe image.',
+    maxLength: 2048,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUrl()
+  @MaxLength(2048)
+  imageUrl?: string | null
+
+  @ApiPropertyOptional({
+    example: ['italian', 'quick'],
+    description: 'Tags for display and future filtering.',
+    type: [String],
+  })
+  @ValidateIf((_, value: unknown) => value !== undefined)
+  @IsArray()
+  @IsString({ each: true })
+  @Matches(/\S/, { each: true })
+  @MaxLength(40, { each: true })
+  @ArrayMaxSize(20)
+  tags?: string[]
 
   @ApiPropertyOptional({
     enum: RecipeStatus,

@@ -61,4 +61,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 # local agent cache/registry
 .atl
 
+# local SDD/OpenSpec artifacts
+/openspec
+
 /src/generated/prisma

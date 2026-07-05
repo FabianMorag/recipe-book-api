@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing'
 import { INestApplication } from '@nestjs/common'
+import { Test, TestingModule } from '@nestjs/testing'
 import request from 'supertest'
 import { App } from 'supertest/types'
 import { AppModule } from './../src/app.module'
-import { PrismaService } from './../src/prisma/prisma.service'
 import { AuthBootstrap } from './../src/auth/auth.bootstrap'
+import { PrismaService } from './../src/prisma/prisma.service'
 import { configureOpenApi } from './../src/openapi'
 
 type OpenApiOperation = {
@@ -160,6 +160,19 @@ describe('AppController (e2e)', () => {
             maxLength: 2000,
             nullable: true,
           }),
+          servings: expectObjectContaining({
+            type: expect.stringMatching(/^(number|integer)$/),
+            nullable: true,
+            minimum: 1,
+          }),
+          imageUrl: expectObjectContaining({
+            type: 'string',
+            nullable: true,
+          }),
+          tags: expectObjectContaining({
+            type: 'array',
+            items: expectObjectContaining({ type: 'string' }),
+          }),
           status: expectObjectContaining({
             enum: expectArrayContaining(['DRAFT', 'PRIVATE', 'PUBLIC']),
           }),
@@ -172,6 +185,37 @@ describe('AppController (e2e)', () => {
             maxLength: 2000,
             nullable: true,
           }),
+          servings: expectObjectContaining({
+            type: expect.stringMatching(/^(number|integer)$/),
+            nullable: true,
+            minimum: 1,
+          }),
+          imageUrl: expectObjectContaining({
+            type: 'string',
+            nullable: true,
+          }),
+          tags: expectObjectContaining({
+            type: 'array',
+            items: expectObjectContaining({ type: 'string' }),
+            nullable: true,
+          }),
+        },
+      },
+      RecipeListItemDto: {
+        properties: {
+          servings: expectObjectContaining({
+            type: expect.stringMatching(/^(number|integer)$/),
+            nullable: true,
+          }),
+          imageUrl: expectObjectContaining({
+            type: 'string',
+            nullable: true,
+          }),
+          tags: expectObjectContaining({
+            type: 'array',
+            items: expectObjectContaining({ type: 'string' }),
+          }),
+          author: jsonSchemaRef('RecipeAuthorDto'),
         },
       },
       RecipeResponseDto: {
@@ -181,7 +225,27 @@ describe('AppController (e2e)', () => {
           status: expectObjectContaining({
             enum: expectArrayContaining(['DRAFT', 'PRIVATE', 'PUBLIC']),
           }),
+          servings: expectObjectContaining({
+            type: expect.stringMatching(/^(number|integer)$/),
+            nullable: true,
+          }),
+          imageUrl: expectObjectContaining({
+            type: 'string',
+            nullable: true,
+          }),
+          tags: expectObjectContaining({
+            type: 'array',
+            items: expectObjectContaining({ type: 'string' }),
+          }),
+          author: jsonSchemaRef('RecipeAuthorDto'),
           updatedAt: expectObjectContaining({ format: 'date-time' }),
+        },
+      },
+      RecipeAuthorDto: {
+        properties: {
+          id: expectObjectContaining({ type: 'string' }),
+          name: expectObjectContaining({ type: 'string', nullable: true }),
+          image: expectObjectContaining({ type: 'string', nullable: true }),
         },
       },
       MeResponseDto: {

@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common'
-import { RecipesService } from './recipes.service'
+import { RecipeStatus } from '../generated/prisma/enums'
 import { PrismaService } from '../prisma/prisma.service'
+import { RecipesService } from './recipes.service'
 
 describe('RecipesService', () => {
   let service: RecipesService
@@ -15,12 +16,43 @@ describe('RecipesService', () => {
   }
 
   const now = new Date('2026-06-27T10:00:00.000Z')
+  const expectedAuthor = {
+    id: 'user_1',
+    name: 'Alice',
+    image: null,
+  }
+  const expectedAuthorSelect = {
+    id: true,
+    name: true,
+    image: true,
+  } as const
+  const expectedListSelect = {
+    id: true,
+    title: true,
+    description: true,
+    servings: true,
+    imageUrl: true,
+    tags: true,
+    status: true,
+    createdAt: true,
+    author: { select: expectedAuthorSelect },
+  } as const
+  const expectedDetailSelect = {
+    ...expectedListSelect,
+    updatedAt: true,
+    authorId: true,
+    author: { select: expectedAuthorSelect },
+  } as const
   const baseRecipe = {
     id: 'recipe_1',
     title: 'Pasta',
     description: null,
-    status: 'DRAFT',
+    servings: null,
+    imageUrl: null,
+    tags: [],
+    status: RecipeStatus.DRAFT,
     authorId: 'user_1',
+    author: expectedAuthor,
     createdAt: now,
     updatedAt: now,
   }
@@ -38,122 +70,230 @@ describe('RecipesService', () => {
     service = new RecipesService(prisma as unknown as PrismaService)
   })
 
-  it('creates a draft recipe with null description by default', async () => {
+  it('creates a draft recipe with default servings/imageUrl/tags and author', async () => {
     prisma.recipe.create.mockResolvedValue(baseRecipe)
 
-    await expect(service.create('user_1', { title: 'Pasta' })).resolves.toEqual(
-      {
-        id: 'recipe_1',
-        title: 'Pasta',
-        description: null,
-        status: 'DRAFT',
-        createdAt: now,
-        updatedAt: now,
-      },
-    )
+    await expect(
+      service.create('user_1', { title: 'Pasta' }),
+    ).resolves.toMatchObject({
+      id: 'recipe_1',
+      title: 'Pasta',
+      description: null,
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      status: RecipeStatus.DRAFT,
+      createdAt: now,
+      updatedAt: now,
+      author: expectedAuthor,
+    })
     expect(prisma.recipe.create).toHaveBeenCalledWith({
       data: {
         title: 'Pasta',
         description: null,
-        status: 'DRAFT',
+        servings: null,
+        imageUrl: null,
+        tags: [],
+        status: RecipeStatus.DRAFT,
         authorId: 'user_1',
       },
+      select: expectedDetailSelect,
     })
   })
 
-  it('creates a recipe with an explicit private status and description', async () => {
-    prisma.recipe.create.mockResolvedValue({
+  it('creates a recipe with explicit servings, imageUrl, and tags', async () => {
+    const recipeWithFields = {
       ...baseRecipe,
-      title: 'Secret',
-      description: 'Family recipe',
-      status: 'PRIVATE',
-    })
+      servings: 4,
+      imageUrl: 'https://example.com/img.jpg',
+      tags: ['italian', 'quick'],
+      author: { id: 'user_1', name: null, image: null },
+    }
+    prisma.recipe.create.mockResolvedValue(recipeWithFields)
 
     await expect(
       service.create('user_1', {
-        title: 'Secret',
-        description: 'Family recipe',
-        status: 'PRIVATE',
+        title: 'Pasta',
+        servings: 4,
+        imageUrl: 'https://example.com/img.jpg',
+        tags: ['italian', 'quick'],
       }),
     ).resolves.toMatchObject({
-      title: 'Secret',
-      description: 'Family recipe',
-      status: 'PRIVATE',
+      servings: 4,
+      imageUrl: 'https://example.com/img.jpg',
+      tags: ['italian', 'quick'],
+      author: { id: 'user_1', name: null, image: null },
     })
+    expect(prisma.recipe.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        data: expect.objectContaining({
+          servings: 4,
+          imageUrl: 'https://example.com/img.jpg',
+          tags: ['italian', 'quick'],
+        }),
+        select: expectedDetailSelect,
+      }),
+    )
   })
 
   it('lists every recipe owned by a user regardless of status', async () => {
     prisma.recipe.findMany.mockResolvedValue([
-      { ...baseRecipe, status: 'DRAFT' },
-      { ...baseRecipe, id: 'recipe_2', status: 'PRIVATE' },
-      { ...baseRecipe, id: 'recipe_3', status: 'PUBLIC' },
+      baseRecipe,
+      { ...baseRecipe, id: 'recipe_2', status: RecipeStatus.PRIVATE },
+      {
+        ...baseRecipe,
+        id: 'recipe_3',
+        status: RecipeStatus.PUBLIC,
+        servings: 4,
+        imageUrl: 'https://example.com/img.jpg',
+        tags: ['dinner'],
+      },
     ])
 
     const result = await service.findAllByOwner('user_1')
 
     expect(result).toHaveLength(3)
+    expect(result[0]).toMatchObject({
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      author: expectedAuthor,
+    })
+    expect(result[1]).toMatchObject({
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      author: expectedAuthor,
+    })
+    expect(result[2]).toMatchObject({
+      servings: 4,
+      imageUrl: 'https://example.com/img.jpg',
+      tags: ['dinner'],
+      author: expectedAuthor,
+    })
     expect(result.map((recipe) => recipe.status)).toEqual([
-      'DRAFT',
-      'PRIVATE',
-      'PUBLIC',
+      RecipeStatus.DRAFT,
+      RecipeStatus.PRIVATE,
+      RecipeStatus.PUBLIC,
     ])
+    expect(
+      result.every(
+        (recipe) => !Object.prototype.hasOwnProperty.call(recipe, 'authorId'),
+      ),
+    ).toBe(true)
     expect(prisma.recipe.findMany).toHaveBeenCalledWith({
       where: { authorId: 'user_1' },
       orderBy: { createdAt: 'desc' },
-      select: RecipesService.listSelect,
+      select: expectedListSelect,
     })
   })
 
   it('lists only public recipes', async () => {
     prisma.recipe.findMany.mockResolvedValue([
-      { ...baseRecipe, status: 'PUBLIC' },
-      { ...baseRecipe, id: 'recipe_2', status: 'PUBLIC' },
+      {
+        ...baseRecipe,
+        status: RecipeStatus.PUBLIC,
+        author: {
+          id: 'user_1',
+          name: 'Alice',
+          image: 'https://example.com/alice.jpg',
+        },
+      },
+      {
+        ...baseRecipe,
+        id: 'recipe_2',
+        status: RecipeStatus.PUBLIC,
+        servings: 2,
+        imageUrl: null,
+        tags: ['quick'],
+        author: { id: 'user_2', name: null, image: null },
+      },
     ])
 
     const result = await service.findAllPublic()
 
     expect(result).toHaveLength(2)
-    expect(result.every((recipe) => recipe.status === 'PUBLIC')).toBe(true)
+    expect(
+      result.every((recipe) => recipe.status === RecipeStatus.PUBLIC),
+    ).toBe(true)
+    expect(result[0]).toMatchObject({
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      author: {
+        id: 'user_1',
+        name: 'Alice',
+        image: 'https://example.com/alice.jpg',
+      },
+    })
+    expect(result[1]).toMatchObject({
+      servings: 2,
+      imageUrl: null,
+      tags: ['quick'],
+      author: { id: 'user_2', name: null, image: null },
+    })
     expect(prisma.recipe.findMany).toHaveBeenCalledWith({
-      where: { status: 'PUBLIC' },
+      where: { status: RecipeStatus.PUBLIC },
       orderBy: { createdAt: 'desc' },
-      select: RecipesService.listSelect,
+      select: expectedListSelect,
     })
   })
 
   it('returns a public recipe detail for anonymous users', async () => {
     prisma.recipe.findUnique.mockResolvedValue({
       ...baseRecipe,
-      status: 'PUBLIC',
+      status: RecipeStatus.PUBLIC,
+      author: {
+        id: 'user_1',
+        name: 'Alice',
+        image: 'https://example.com/alice.jpg',
+      },
     })
 
-    await expect(service.findOneOrNotFound('recipe_1', null)).resolves.toEqual({
+    await expect(
+      service.findOneOrNotFound('recipe_1', null),
+    ).resolves.toMatchObject({
       id: 'recipe_1',
       title: 'Pasta',
       description: null,
-      status: 'PUBLIC',
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      status: RecipeStatus.PUBLIC,
       createdAt: now,
       updatedAt: now,
+      author: {
+        id: 'user_1',
+        name: 'Alice',
+        image: 'https://example.com/alice.jpg',
+      },
     })
   })
 
   it('returns private recipe detail only to the owner', async () => {
     prisma.recipe.findUnique.mockResolvedValue({
       ...baseRecipe,
-      status: 'PRIVATE',
+      status: RecipeStatus.PRIVATE,
+      author: { id: 'user_1', name: 'Alice', image: null },
     })
 
     await expect(
       service.findOneOrNotFound('recipe_1', 'user_1'),
-    ).resolves.toEqual(
-      expect.objectContaining({ id: 'recipe_1', status: 'PRIVATE' }),
-    )
+    ).resolves.toMatchObject({
+      id: 'recipe_1',
+      status: RecipeStatus.PRIVATE,
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      author: { id: 'user_1', name: 'Alice', image: null },
+    })
   })
 
   it('hides private recipe detail from non-owners', async () => {
     prisma.recipe.findUnique.mockResolvedValue({
       ...baseRecipe,
-      status: 'PRIVATE',
+      status: RecipeStatus.PRIVATE,
     })
 
     await expect(
@@ -173,20 +313,80 @@ describe('RecipesService', () => {
     prisma.recipe.findFirst.mockResolvedValue(baseRecipe)
     prisma.recipe.update.mockResolvedValue({
       ...baseRecipe,
-      title: 'New Pasta',
-      status: 'PUBLIC',
+      servings: 6,
+      imageUrl: 'https://example.com/new.jpg',
+      tags: ['updated'],
+      author: { id: 'user_1', name: 'Alice', image: null },
     })
 
     await expect(
       service.update('recipe_1', 'user_1', {
-        title: 'New Pasta',
-        status: 'PUBLIC',
+        servings: 6,
+        imageUrl: 'https://example.com/new.jpg',
+        tags: ['updated'],
       }),
-    ).resolves.toMatchObject({ title: 'New Pasta', status: 'PUBLIC' })
+    ).resolves.toMatchObject({
+      servings: 6,
+      imageUrl: 'https://example.com/new.jpg',
+      tags: ['updated'],
+      author: { id: 'user_1', name: 'Alice', image: null },
+    })
     expect(prisma.recipe.update).toHaveBeenCalledWith({
       where: { id: 'recipe_1' },
-      data: { title: 'New Pasta', status: 'PUBLIC' },
+      data: {
+        servings: 6,
+        imageUrl: 'https://example.com/new.jpg',
+        tags: ['updated'],
+      },
+      select: expectedDetailSelect,
     })
+  })
+
+  it('clears optional content fields when null is provided on update', async () => {
+    prisma.recipe.findFirst.mockResolvedValue(baseRecipe)
+    prisma.recipe.update.mockResolvedValue({
+      ...baseRecipe,
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      author: expectedAuthor,
+    })
+
+    await expect(
+      service.update('recipe_1', 'user_1', {
+        servings: null,
+        imageUrl: null,
+        tags: null,
+      }),
+    ).resolves.toMatchObject({
+      servings: null,
+      imageUrl: null,
+      tags: [],
+      author: expectedAuthor,
+    })
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: 'recipe_1' },
+      data: {
+        servings: null,
+        imageUrl: null,
+        tags: [],
+      },
+      select: expectedDetailSelect,
+    })
+  })
+
+  it('coerces null tags to empty array in list response', async () => {
+    prisma.recipe.findMany.mockResolvedValue([
+      {
+        ...baseRecipe,
+        tags: null,
+        author: expectedAuthor,
+      },
+    ])
+
+    const result = await service.findAllByOwner('user_1')
+
+    expect(result[0]).toMatchObject({ tags: [] })
   })
 
   it('hides owner-only updates from non-owners', async () => {

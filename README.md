@@ -196,6 +196,17 @@ https://<your-domain>/auth/callback/google     # production
 
 ## Deployment
 
+Apply database migrations before serving a build that depends on new columns:
+
+```bash
+$ pnpm run db:deploy
+$ pnpm run start:prod
+```
+
+`start:prod` does not run migrations automatically. For `recipe-content`, the API
+selects `servings`, `image_url`, and `tags` on recipe queries, so deploying app
+code before `db:deploy` can break recipe endpoints until the migration is applied.
+
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
 If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:

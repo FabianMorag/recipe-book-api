@@ -8,11 +8,21 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CreateRecipeDto } from './dto/create-recipe.dto'
 import { UpdateRecipeDto } from './dto/update-recipe.dto'
 
+export type RecipeAuthor = {
+  id: string
+  name: string | null
+  image: string | null
+}
+
 export type RecipeListItem = {
   id: string
   title: string
   description: string | null
+  servings: number | null
+  imageUrl: string | null
+  tags: string[]
   status: RecipeStatus
+  author: RecipeAuthor
   createdAt: Date
 }
 
@@ -26,12 +36,22 @@ type RecipeRecord = RecipeResponse & {
 
 @Injectable()
 export class RecipesService {
+  static readonly authorSelect = {
+    id: true,
+    name: true,
+    image: true,
+  } as const
+
   static readonly listSelect = {
     id: true,
     title: true,
     description: true,
+    servings: true,
+    imageUrl: true,
+    tags: true,
     status: true,
     createdAt: true,
+    author: { select: RecipesService.authorSelect },
   } as const
 
   static readonly detailSelect = {
@@ -49,9 +69,13 @@ export class RecipesService {
       data: {
         title: dto.title,
         description: dto.description ?? null,
+        servings: dto.servings ?? null,
+        imageUrl: dto.imageUrl ?? null,
+        tags: dto.tags ?? [],
         status: dto.status ?? RecipeStatus.DRAFT,
         authorId: ownerId,
       },
+      select: RecipesService.detailSelect,
     })
 
     return this.toRecipeResponse(recipe)
@@ -113,6 +137,7 @@ export class RecipesService {
     const recipe = await this.prisma.recipe.update({
       where: { id },
       data,
+      select: RecipesService.detailSelect,
     })
 
     return this.toRecipeResponse(recipe)
@@ -140,11 +165,17 @@ export class RecipesService {
   private toUpdateData(dto: UpdateRecipeDto): {
     title?: string
     description?: string | null
+    servings?: number | null
+    imageUrl?: string | null
+    tags?: string[]
     status?: RecipeStatus
   } {
     const data: {
       title?: string
       description?: string | null
+      servings?: number | null
+      imageUrl?: string | null
+      tags?: string[]
       status?: RecipeStatus
     } = {}
 
@@ -153,6 +184,15 @@ export class RecipesService {
     }
     if (dto.description !== undefined) {
       data.description = dto.description
+    }
+    if (dto.servings !== undefined) {
+      data.servings = dto.servings
+    }
+    if (dto.imageUrl !== undefined) {
+      data.imageUrl = dto.imageUrl
+    }
+    if (dto.tags !== undefined) {
+      data.tags = dto.tags ?? []
     }
     if (dto.status !== undefined) {
       data.status = dto.status
@@ -166,7 +206,11 @@ export class RecipesService {
       id: recipe.id,
       title: recipe.title,
       description: recipe.description,
+      servings: recipe.servings,
+      imageUrl: recipe.imageUrl,
+      tags: recipe.tags ?? [],
       status: recipe.status,
+      author: recipe.author,
       createdAt: recipe.createdAt,
     }
   }
