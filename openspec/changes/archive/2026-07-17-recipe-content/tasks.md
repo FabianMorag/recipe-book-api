@@ -705,5 +705,5 @@ All commands must pass with zero errors.
 - [x] Unit tests for the recipe-content slice pass.
 - [x] E2E tests for the recipe-content slice pass.
 - [x] OpenAPI assertions include the new recipe-content contract.
-- [ ] Deferred: ingredients, steps, nested writes, AI generation, search/filtering by tags.
-- [ ] Deferred: frontend/UI and media upload/storage.
+- (deferred) ingredients, steps, nested writes, AI generation, search/filtering by tags.
+- (deferred) frontend/UI and media upload/storage.
